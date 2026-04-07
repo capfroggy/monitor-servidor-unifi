@@ -1,162 +1,233 @@
-# Monitor de Servidor
+# Server Monitor
 
-Este proyecto monitorea si un servidor se cae y manda alertas cuando:
+![GitHub Ready](https://img.shields.io/badge/GitHub-ready-black?logo=github)
+![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
 
-- el servicio deja de responder
-- el servicio se recupera
+Configurable server and service monitor for detecting outages, tracking recovery time, recording incidents, and sending local or remote alerts.
 
-Tambien guarda un historial con:
+This project is intended for environments where it is important to know:
 
-- fecha y hora de inicio de la caida
-- fecha y hora de recuperacion
-- duracion total
-- motivo del fallo
-- detalles tecnicos del chequeo
+- when a service goes down
+- when it comes back online
+- how long the outage lasted
+- what error was detected during the incident
 
-## Que puede monitorear
+## Features
 
-Puedes elegir uno de estos modos:
+- Monitoring via `http`, `tcp`, or `ping`
+- Configurable outage and recovery thresholds
+- Persistent incident history in CSV format
+- Runtime log output to file
+- Local Windows alert with sound and popup window
+- SMTP email alert support
+- Webhook alert support
 
-- `http`: revisa una URL y valida el codigo HTTP esperado
-- `tcp`: revisa si un puerto esta abierto
-- `ping`: revisa conectividad basica al host
+## Requirements
 
-## Instalacion
+- Python 3.10 or later
+- Windows if local sound and popup alerts are required
+
+## Installation
+
+Clone the repository or download the project, then install the dependency:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Configuracion
+If `pip` is not directly available:
 
-1. Crea tu archivo de configuracion a partir del ejemplo.
-2. Ajusta el target, el intervalo y el metodo de alerta.
-3. No subas `config.json` a GitHub. El repo ya incluye un `.gitignore` para evitarlo.
+```bash
+python -m pip install -r requirements.txt
+```
 
-En Windows PowerShell:
+## Quick Start
+
+1. Copy the example configuration file:
 
 ```powershell
 Copy-Item .\config.example.json .\config.json
 ```
 
-## Uso
+2. Edit `config.json` with the URL, host, or port you want to monitor.
 
-Prueba una sola verificacion:
+3. Run a single test check:
 
 ```bash
 python monitor_servidor.py --config config.json --once
 ```
 
-Ejecuta el monitoreo continuo:
+4. Start continuous monitoring:
 
 ```bash
 python monitor_servidor.py --config config.json
 ```
 
-## Configuracion para tu UniFi
+## Usage
 
-Para una consola UniFi normalmente basta con usar una configuracion como la de [config.example.json](./config.example.json):
+The monitor supports three check types:
 
-- `https://TU_IP_O_HOST:8443/`
+- `http`: validates a URL and compares the response code against expected values
+- `tcp`: validates that a host and port accept connections
+- `ping`: validates basic connectivity to a host
 
-Ese equipo responde con certificado autofirmado y redirecciona a `/manage`, por eso la configuracion usa:
+### UniFi Example
 
-- `verify_ssl: false`
-- `allow_redirects: false`
-- `expected_status_codes: [200, 302]`
+A local UniFi console commonly uses a self-signed certificate and may return a redirect instead of `200`. A typical configuration looks like this:
 
-Con eso el monitor toma como sano un `200` o un `302`, que en UniFi suele indicar que la consola esta arriba.
+```json
+{
+  "target": {
+    "name": "UniFi or local server",
+    "type": "http",
+    "url": "https://YOUR_HOST_OR_IP:8443/",
+    "method": "GET",
+    "timeout_seconds": 10,
+    "expected_status_codes": [200, 302],
+    "allow_redirects": false,
+    "verify_ssl": false
+  },
+  "monitoring": {
+    "check_interval_seconds": 10,
+    "failure_threshold": 2,
+    "recovery_threshold": 1,
+    "heartbeat_every_checks": 30
+  }
+}
+```
 
-## Archivos que genera
+In this setup:
 
-- `data/monitor.log`: log de ejecucion
-- `data/state.json`: estado actual del monitor
-- `data/incidentes.csv`: historial de caidas y recuperaciones
+- `verify_ssl: false` avoids failures caused by a self-signed certificate
+- `allow_redirects: false` keeps the original response visible to the monitor
+- `expected_status_codes: [200, 302]` treats both responses as healthy
 
-Todos esos archivos locales ya estan excluidos por `.gitignore`.
+## Configuration
 
-## Alertas
+The public example file is [config.example.json](./config.example.json).
 
-El script soporta dos tipos de alerta:
+Main configuration sections:
 
-- Email SMTP
-- Webhook
-- Alerta local de Windows con sonido y ventana emergente
+- `target`: what to monitor and how to check it
+- `monitoring`: interval and outage detection thresholds
+- `alerts`: email, webhook, and desktop notification settings
+- `files`: output paths for logs, state, and incident history
 
-Para webhook puedes usar:
+Key monitoring settings:
+
+- `check_interval_seconds`: how often to run checks
+- `failure_threshold`: number of consecutive failures required to declare an outage
+- `recovery_threshold`: number of consecutive successful checks required to declare recovery
+
+Example:
+
+- `check_interval_seconds = 10`
+- `failure_threshold = 2`
+
+With that configuration, an outage is confirmed after 2 consecutive failed checks, usually in about 20 seconds.
+
+## Alerts
+
+The monitor can send alerts through three channels:
+
+- `desktop`
+- `email`
+- `webhook`
+
+### Desktop Alerts
+
+When `alerts.desktop.enabled` is set to `true`, the monitor can:
+
+- play a loud alert sound when an outage is detected
+- show a popup window with the outage details
+
+Useful desktop options:
+
+- `sound_on_down`
+- `popup_on_down`
+- `sound_repeat_down`
+- `sound_on_recovery`
+- `popup_on_recovery`
+
+### Email Alerts
+
+SMTP configuration requires:
+
+- `smtp_server`
+- `smtp_port`
+- `username`
+- `password`
+- `sender_email`
+- `recipient_emails`
+
+### Webhook Alerts
+
+Webhook payloads are supported for:
 
 - `discord`
 - `slack`
 - `teams`
 - `generic`
 
-En tu `config.json` puedes activar la alerta local para que, cuando el UniFi se caiga:
+## Output Files
 
-- suene una alarma repetida
-- aparezca una ventana emergente con fecha, hora y detalle del fallo
+The following files are created during execution:
 
-Si luego quieres cambiarlo, revisa la seccion `alerts.desktop`.
+- `data/monitor.log`: general runtime log
+- `data/state.json`: current monitoring state
+- `data/incidentes.csv`: outage and recovery history
 
-## Publicarlo en GitHub sin exponer datos
+## Incident History
 
-Este repo ya quedo preparado para eso:
+Each entry saved to `data/incidentes.csv` includes:
 
-- `config.json` no se sube
-- `data/` no se sube
-- `__pycache__/` no se sube
-- el ejemplo publico usa placeholders en lugar de tu IP real
+- monitored target name
+- check type
+- hostname of the machine running the monitor
+- outage start time
+- recovery time
+- duration in seconds
+- human-readable duration
+- failure reason
+- failure details
+- recovery details
 
-Flujo recomendado:
+## Security
 
-```powershell
-cd "ruta\\del\\proyecto"
-git init
-git add .gitignore README.md monitor_servidor.py requirements.txt config.example.json
-git commit -m "Agregar monitor de servidor configurable"
+This project is prepared to be published without exposing real local configuration.
+
+The following are excluded from version control:
+
+- `config.json`
+- `data/`
+- `__pycache__/`
+
+Use `config.example.json` as the public template and keep real values only in your local `config.json`.
+
+## Contributing
+
+Contributions are welcome for:
+
+- new alert channels
+- monitoring improvements
+- better Windows service integration
+- bug fixes and documentation updates
+
+If you plan to contribute:
+
+1. Fork the repository.
+2. Create a feature branch.
+3. Make your changes with clear commits.
+4. Test the behavior locally.
+5. Open a pull request with a short description of the change.
+
+## Project Structure
+
+```text
+.
+|-- monitor_servidor.py
+|-- config.example.json
+|-- requirements.txt
+|-- README.md
+`-- data/
 ```
-
-Si usas GitHub CLI y quieres crear el repo desde terminal:
-
-```powershell
-gh repo create monitor-servidor-unifi --public --source . --remote origin --push
-```
-
-Si prefieres que el repo quede privado, cambia `--public` por `--private`.
-
-## Ejemplo de configuracion por puerto TCP
-
-```json
-{
-  "target": {
-    "name": "SQL Produccion",
-    "type": "tcp",
-    "host": "TU_HOST_O_IP",
-    "port": 1433,
-    "timeout_seconds": 5
-  }
-}
-```
-
-## Ejemplo de configuracion por ping
-
-```json
-{
-  "target": {
-    "name": "Servidor Interno",
-    "type": "ping",
-    "host": "TU_HOST_O_IP",
-    "timeout_seconds": 5
-  }
-}
-```
-
-## Recomendaciones
-
-- Usa `failure_threshold` en `2` o `3` para evitar falsos positivos por microcortes.
-- Si usas Gmail, normalmente necesitas una app password.
-- Deja el script corriendo con el Programador de tareas de Windows, NSSM o como servicio.
-
-## Idea para dejarlo siempre activo en Windows
-
-Puedes crear una tarea programada para que arranque al iniciar sesion o al encender el equipo.
-Si quieres, en el siguiente paso te dejo tambien el `.bat` o la tarea de Windows lista para que se ejecute sola.
