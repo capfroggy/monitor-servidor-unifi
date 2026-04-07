@@ -1,0 +1,61 @@
+{
+  "target": {
+    "name": "UniFi o servidor local",
+    "type": "http",
+    "url": "https://TU_IP_O_HOST:8443/",
+    "method": "GET",
+    "timeout_seconds": 10,
+    "expected_status_codes": [
+      200,
+      302
+    ],
+    "allow_redirects": false,
+    "verify_ssl": false,
+    "headers": {
+      "User-Agent": "monitor-servidor/1.0"
+    }
+  },
+  "monitoring": {
+    "check_interval_seconds": 60,
+    "failure_threshold": 2,
+    "recovery_threshold": 1,
+    "heartbeat_every_checks": 30
+  },
+  "alerts": {
+    "email": {
+      "enabled": false,
+      "smtp_server": "smtp.gmail.com",
+      "smtp_port": 587,
+      "username": "tu_correo@gmail.com",
+      "password": "tu_app_password",
+      "sender_email": "tu_correo@gmail.com",
+      "recipient_emails": [
+        "destino@correo.com"
+      ],
+      "use_tls": true,
+      "use_ssl": false
+    },
+    "webhook": {
+      "enabled": false,
+      "provider": "discord",
+      "url": "https://tu-webhook",
+      "timeout_seconds": 15,
+      "headers": {}
+    },
+    "desktop": {
+      "enabled": true,
+      "sound_on_down": true,
+      "popup_on_down": true,
+      "sound_repeat_down": 3,
+      "sound_on_recovery": false,
+      "popup_on_recovery": false,
+      "sound_repeat_recovery": 1,
+      "sound_pause_ms": 120
+    }
+  },
+  "files": {
+    "state_file": "data/state.json",
+    "incident_csv": "data/incidentes.csv",
+    "runtime_log": "data/monitor.log"
+  }
+}
